@@ -315,6 +315,7 @@ const HOLIDAYS = [
 ];
 const WORK_FILLIN = ["2026-01-04","2026-02-14","2026-02-28","2026-05-09","2026-09-20","2026-10-10"];
 const CLASS_START = "2026-09-09"; // 罗泽朝从该日起每周末上课
+const CLASS_END = "2028-06-30";   // 上课截止到 2028 年 6 月底，此后不再有上课标识
 const ADMIN_NAME = "罗泽朝";
 
 /* ==================== 状态 ==================== */
@@ -335,6 +336,7 @@ function isFillIn(s){return WORK_FILLIN.includes(s)}
 function isClassAuto(u,s){
   if(u.name!==ADMIN_NAME) return false; // 只有罗泽朝自动上课
   if(s<CLASS_START) return false;
+  if(s>CLASS_END) return false;  // 2028年6月之后不再上课
   const w=weekdayOf(s);
   if(w!==0&&w!==6) return false; // 仅周六日
   if(isHoliday(s)) return false;  // 公休日不上课
@@ -357,14 +359,16 @@ function isWorkdayModeDay(s){ // 工作日模式：双休+公休；含调休补�
 
 /* 某天的完整状态 */
 function dayState(u,s){
-  const ov = (u.overrides&&u.overrides[s])||null;
+  const canClass = u.name===ADMIN_NAME; // 仅罗泽朝有上课
+  const rawOv = (u.overrides&&u.overrides[s])||null;
+  const ov = (rawOv==="class" && !canClass) ? null : rawOv; // 非罗泽朝忽略上课覆盖
   let work, cls;
   if(ov==="work"){work=true;cls=false;}
   else if(ov==="rest"){work=false;cls=false;}
   else if(ov==="class"){work=false;cls=true;}
   else {
     work=(u.mode==="duty"?isDutyDay(u.anchor,s):isWorkdayModeDay(s));
-    cls=isClassAuto(u,s);
+    cls=canClass && isClassAuto(u,s);
   }
   const hd=isHoliday(s);
   const conflict = work && cls;
@@ -491,6 +495,9 @@ function renderDetail(){
   const btns=panel.querySelectorAll(".opt-btn");
   btns.forEach(b=>{
     const o=b.dataset.opt;
+    // 非罗泽朝用户隐藏"上课"选项，仅保留上班/休息
+    if(o==="class" && u.name!==ADMIN_NAME){ b.style.display="none"; return; }
+    if(o==="class"){ b.style.display=""; }
     b.classList.toggle("active", st.ov===o);
   });
   // 说明
